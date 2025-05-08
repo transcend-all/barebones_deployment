@@ -27,8 +27,8 @@ All three nodehttps://github.com/transcend-all/barebones_deployments are connect
 ### 1. Clone and initialize
 
 ```bash
-git clone https://github.com/your-org/your-repo.git
-cd your-repo
+git clone git@github.com:transcend-all/barebones_deployment.git
+cd barebones_deployment
 ```
 
 * * * * *
@@ -142,7 +142,7 @@ Hello from the database!
 -----------
 
 To remove all resources:
-
+barebones_deployment
 ```
 terraform destroy
 
