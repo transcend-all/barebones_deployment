@@ -1,0 +1,41 @@
+- hosts: backend
+  become: yes
+  vars:
+    db_name: minimal_app
+    db_user: app_user
+    db_password: S3cureP@ssw0rd
+    database_ip: "{{ (lookup('file', 'tf_outputs.json') | from_json).database_private_ip.value }}"
+  tasks:
+
+    - name: Install backend dependencies
+      shell: yum install -y python3-pip python3-devel postgresql-devel gcc
+
+    - name: Copy backend code (excluding app.py)
+      copy:
+        src: ./backend/
+        dest: /home/ec2-user/backend/
+        owner: ec2-user
+        group: ec2-user
+        mode: '0755'  
+
+    - name: Inject database IP into app.py
+      template:
+        src: templates/app.py.j2
+        dest: /home/ec2-user/backend/app.py
+        owner: ec2-user
+        group: ec2-user
+        mode: '0755'
+
+    - name: Install Python dependencies
+      pip:
+        requirements: /home/ec2-user/backend/requirements.txt
+
+    - name: Stop any running Flask app
+      shell: pkill -f app.py || true
+      ignore_errors: yes
+
+    - name: Start Flask app with nohup
+      shell: nohup python3 /home/ec2-user/backend/app.py &
+      args:
+        executable: /bin/bash
+

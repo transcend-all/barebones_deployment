@@ -1,0 +1,25 @@
+from flask import Flask, jsonify
+from flask_cors import CORS
+import psycopg2
+
+app = Flask(__name__)
+CORS(app)  # <-- This enables CORS
+
+@app.route("/api/message")
+def get_message():
+    conn = psycopg2.connect(
+        dbname="{{ db_name }}",
+        user="{{ db_user }}",
+        password="{{ db_password }}",
+        host="{{ database_ip }}",
+        port=5432
+    )
+    cur = conn.cursor()
+    cur.execute("SELECT content FROM messages LIMIT 1;")
+    message = cur.fetchone()[0]
+    cur.close()
+    conn.close()
+    return jsonify({"message": message})
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)

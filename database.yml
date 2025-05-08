@@ -1,0 +1,136 @@
+- hosts: database
+  become: yes
+  vars:
+    db_name: minimal_app
+    db_user: app_user
+    db_password: S3cureP@ssw0rd
+  tasks:
+    - name: Install PostgreSQL
+      shell: yum install -y postgresql postgresql-server
+
+    - name: Initialize PostgreSQL database
+      become: yes
+      shell: /usr/bin/postgresql-setup initdb postgresql
+      args:
+        creates: /var/lib/pgsql/data/PG_VERSION
+
+    - name: Enable and start PostgreSQL service
+      become: yes
+      systemd:
+        name: postgresql
+        enabled: yes
+        state: started
+
+    - name: Wait for PostgreSQL to be ready
+      become: yes
+      wait_for:
+        port: 5432
+        delay: 5
+
+    - name: Install psycopg2 system-wide for Ansible to use
+      become: yes
+      pip:
+        name: psycopg2-binary
+        executable: pip3
+
+    - name: Initialize PostgreSQL database cluster
+      become: yes
+      shell: /usr/bin/postgresql-setup initdb postgresql
+      args:
+        creates: /var/lib/pgsql/data/PG_VERSION
+
+    - name: Allow PostgreSQL to listen on all interfaces
+      become: yes
+      lineinfile:
+        path: /var/lib/pgsql/data/postgresql.conf
+        regexp: '^#?listen_addresses\s*='
+        line: "listen_addresses = '*'"
+
+    - name: Allow remote connections to PostgreSQL
+      become: yes
+      lineinfile:
+        path: /var/lib/pgsql/data/pg_hba.conf
+        insertafter: EOF
+        line: "host    all    all    0.0.0.0/0    md5"
+
+    - name: Restart PostgreSQL
+      become: yes
+      systemd:
+        name: postgresql
+        state: restarted
+        enabled: yes
+
+    - name: Ensure PostgreSQL listens on all interfaces
+      become: yes
+      lineinfile:
+        path: /var/lib/pgsql/data/postgresql.conf
+        regexp: '^#?listen_addresses\s*='
+        line: "listen_addresses = '*'"
+        insertafter: '^#?listen_addresses\s*='
+
+    - name: Allow remote access to PostgreSQL (md5 auth)
+      become: yes
+      lineinfile:
+        path: /var/lib/pgsql/data/pg_hba.conf
+        insertafter: EOF
+        line: "host    all    all    0.0.0.0/0    md5"
+
+    - name: Restart PostgreSQL to apply network changes
+      become: yes
+      systemd:
+        name: postgresql
+        state: restarted
+        enabled: yes
+
+
+
+    - name: Create PostgreSQL database
+      become_user: postgres
+      postgresql_db:
+        name: "{{ db_name }}"
+
+    - name: Create database user
+      become_user: postgres
+      postgresql_user:
+        name: "{{ db_user }}"
+        password: "{{ db_password }}"
+
+    - name: Grant ALL privileges on database to user
+      become_user: postgres
+      postgresql_privs:
+        database: "{{ db_name }}"
+        roles: "{{ db_user }}"
+        type: database
+        privs: ALL
+
+    - name: Create messages table
+      become_user: postgres
+      postgresql_query:
+        db: "{{ db_name }}"
+        query: >
+          CREATE TABLE IF NOT EXISTS messages (
+            id SERIAL PRIMARY KEY,
+            content TEXT NOT NULL
+          );
+          
+    - name: Grant privileges on messages table to app_user
+      become_user: postgres
+      postgresql_privs:
+        database: "{{ db_name }}"
+        roles: "{{ db_user }}"
+        type: table
+        objs: messages
+        privs: SELECT
+
+
+    - name: Seed the messages table (legacy-compatible)
+      become_user: postgres
+      postgresql_query:
+        db: "{{ db_name }}"
+        query: >
+          INSERT INTO messages (content)
+          SELECT 'Hello from the database!'
+          WHERE NOT EXISTS (
+            SELECT 1 FROM messages WHERE content = 'Hello from the database!'
+          );
+

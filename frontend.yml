@@ -1,0 +1,39 @@
+- hosts: frontend
+  become: yes
+  vars:
+    backend_ip: "{{ (lookup('file', 'tf_outputs.json') | from_json).backend_ip.value }}"
+  tasks:
+
+    - name: Install Python 3
+      shell: yum install -y python3
+
+    - name: Create frontend directory
+      file:
+        path: /home/ec2-user/frontend
+        state: directory
+        owner: ec2-user
+        group: ec2-user
+        mode: '0755'
+
+    - name: Copy static frontend assets (except index.html)
+      copy:
+        src: ./frontend/
+        dest: /home/ec2-user/frontend/
+        owner: ec2-user
+        group: ec2-user
+        mode: '0644'
+
+    - name: Template index.html with backend IP
+      template:
+        src: templates/index.html.j2
+        dest: /home/ec2-user/frontend/index.html
+        owner: ec2-user
+        group: ec2-user
+        mode: '0644'
+
+    - name: Start HTTP server on port 8080
+      become: false
+      shell: |
+        nohup python3 -m http.server 8080 --directory /home/ec2-user/frontend/ &
+      args:
+        executable: /bin/bash
