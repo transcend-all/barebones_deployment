@@ -1,39 +1,44 @@
 - hosts: frontend
   become: yes
-  vars:
-    backend_ip: "{{ (lookup('file', 'tf_outputs.json') | from_json).backend_ip.value }}"
   tasks:
+    - name: Install Docker
+      become: yes
+      raw: |
+        yum install -y docker python3-pip
 
-    - name: Install Python 3
-      shell: yum install -y python3
+    - name: Install 'requests' for Ansible docker modules
+      become: yes
+      pip:
+        name: 
+          - docker
+          - urllib3<2.0
+          - requests
+        executable: pip3
 
-    - name: Create frontend directory
-      file:
-        path: /home/ec2-user/frontend
-        state: directory
-        owner: ec2-user
-        group: ec2-user
-        mode: '0755'
+    - name: Ensure Docker is started
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
 
-    - name: Copy static frontend assets (except index.html)
-      copy:
-        src: ./frontend/
-        dest: /home/ec2-user/frontend/
-        owner: ec2-user
-        group: ec2-user
-        mode: '0644'
+    - name: Stop and remove any existing frontend container
+      docker_container:
+        name: barebones-frontend
+        state: absent
 
-    - name: Template index.html with backend IP
-      template:
-        src: templates/index.html.j2
-        dest: /home/ec2-user/frontend/index.html
-        owner: ec2-user
-        group: ec2-user
-        mode: '0644'
+    - name: Pull frontend image from Docker Hub
+      docker_image:
+        name: transcendentalguy/barebones-frontend:latest
+        source: pull
+        force_source: true
 
-    - name: Start HTTP server on port 8080
-      become: false
-      shell: |
-        nohup python3 -m http.server 8080 --directory /home/ec2-user/frontend/ &
-      args:
-        executable: /bin/bash
+    - name: Run frontend container
+      docker_container:
+        name: barebones-frontend
+        image: transcendentalguy/barebones-frontend:latest
+        state: started
+        restart_policy: always
+        published_ports:
+          - "8080:8080"
+        env:
+          BACKEND_URL: "http://{{ (lookup('file', 'tf_outputs.json') | from_json).backend_ip.value }}:5000"
