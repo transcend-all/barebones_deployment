@@ -9,7 +9,7 @@
     <p id="message">Loading...</p>
 
     <script>
-      fetch("__BACKEND_URL__/api/message")
+      fetch("http://ad5106dbaeb86442b903322c7bfd8497-1335911810.us-west-1.elb.amazonaws.com/api/message")
         .then(response => response.json())
         .then(data => {
           document.getElementById("message").innerText = data.message;

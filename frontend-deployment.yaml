@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: barebones-frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: barebones-frontend
+  template:
+    metadata:
+      labels:
+        app: barebones-frontend
+    spec:
+      containers:
+      - name: frontend
+        image: transcendentalguy/barebones-frontend:latest
+        ports:
+        - containerPort: 8080
+        env:
+        - name: BACKEND_URL
+          value: "http://barebones-backend:5000"  # Kubernetes DNS name
+        imagePullPolicy: Always

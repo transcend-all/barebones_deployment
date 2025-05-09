@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: barebones-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: barebones-backend
+  template:
+    metadata:
+      labels:
+        app: barebones-backend
+    spec:
+      containers:
+      - name: backend
+        image: transcendentalguy/barebones-backend:latest
+        ports:
+        - containerPort: 5000
+        env:
+        - name: DB_HOST
+          value: "barebones-database"
+        - name: DB_NAME
+          value: "minimal_app"
+        - name: DB_USER
+          value: "app_user"
+        - name: DB_PASSWORD
+          value: "S3cureP@ssw0rd"
+        imagePullPolicy: Always
